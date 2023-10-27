@@ -1,0 +1,4 @@
+[MESSAGES CONTROL]
+# Ignore warnings like: "R0903: Too few public methods (x/2) (too-few-public-methods)"
+# and R0913: Too many arguments (x/5) (too-many-arguments)
+disable = R0913, R0903

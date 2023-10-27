@@ -1,0 +1,4 @@
+[flake8]
+# ignore "E501 line too long (82 > 79 characters)"
+# ignore "W503 line break before binary operator"
+ignore = E501, W503
