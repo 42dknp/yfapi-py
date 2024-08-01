@@ -1,16 +1,13 @@
 # Copyright 2023 Dominic Kneup.
 # Licensed under the MIT License; you can find the LICENSE file in the project's root folder.
-
 import unittest
+from parameterized import parameterized
 from client.api.transformers.quote_transformer import QuoteTransformer
+from client.exceptions import APIClientExceptions
 
-
-class QuoteTransformerTest(unittest.TestCase):
+class TestQuoteTransformer(unittest.TestCase):
 
     def setUp(self):
-        """
-        Setup Demo data (actual api response) for testing
-        """
         self.json = ('{"quoteResponse":{"result":[{"fullExchangeName":"NasdaqGS","symbol":"AAPL",'
                      '"fiftyTwoWeekLowChangePercent":{"raw":0.42941135,"fmt":"42.94%"},'
                      '"gmtOffSetMilliseconds":-14400000,"regularMarketOpen":{"raw":173.8,"fmt":"173.80"},'
@@ -34,7 +31,8 @@ class QuoteTransformerTest(unittest.TestCase):
                      '"priceHint":2,"regularMarketDayLow":{"raw":173.18,"fmt":"173.18"},"exchange":"NMS",'
                      '"sourceInterval":15,"shortName":"Apple Inc.","region":"US","triggerable":true,'
                      '"corporateActions":[],"longName":"Apple Inc."}],"error":null}}')
-        self.expected = {
+
+    @parameterized.expand([(key, value) for key, value in {
             'fullExchangeName': 'NasdaqGS',
             'symbol': 'AAPL',
             'language': 'en-US',
@@ -72,27 +70,55 @@ class QuoteTransformerTest(unittest.TestCase):
             'regularMarketPrice': 177.49,
             'regularMarketVolume': 57266675,
             'regularMarketDayLow': 173.18,
-        }
+        }.items()])
 
-    def test_transform(self):
-        actual_obj = QuoteTransformer.return_quote_dict(self.json)
-        for key, value in self.expected.items():
-            self.assertTrue(key in actual_obj)
-            self.assertEqual(value, actual_obj[key])
+    def test_data_transformation(self, key, expected_value):
+        transformer = QuoteTransformer()
+        transformed_data = transformer._return_quote_dict(self.json)
+        self.assertEqual(transformed_data[key], expected_value)
 
-    def test_transform_fields(self):
-        fields = ['symbol', 'regularMarketPrice']
-        allowed_fields = ['symbol', 'regularMarketPrice']
-        expected = 'symbol,regularMarketPrice'
-        actual = QuoteTransformer.transform_fields(fields, allowed_fields)
+    @parameterized.expand([
+        (['symbol', 'regularMarketPrice'], ['symbol', 'regularMarketPrice'], 'symbol,regularMarketPrice'),
+        (['symbol', 'regularMarketPrice', 'invalidField'], ['symbol', 'regularMarketPrice'], 'symbol,regularMarketPrice'),
+        ([], ['symbol', 'regularMarketPrice'], ''),
+    ])
+    def test_transform_fields(self, fields, allowed_fields, expected):
+        actual = QuoteTransformer().transform_fields(fields, allowed_fields)
         self.assertEqual(expected, actual)
 
-    def test_output_invalid_format(self):
+    @parameterized.expand([
+        ('invalid', "Output format invalid"),
+    ])
+    def test_output_invalid_format(self, output_format, expected_exception_message):
         with self.assertRaises(Exception) as context:
-            QuoteTransformer.output(self.json, 'invalid')
+            QuoteTransformer.output(self.json, output_format)
+        self.assertEqual(str(context.exception), expected_exception_message)
 
-        self.assertEqual(str(context.exception), "Output Format invalid")
+    def test_empty_json(self):
+        transformer = QuoteTransformer()
+        with self.assertRaises(APIClientExceptions.TransformerException):
+            transformer._return_quote_dict("")
 
+    def test_invalid_json(self):
+        transformer = QuoteTransformer()
+        with self.assertRaises(APIClientExceptions.TransformerException):
+            transformer._return_quote_dict("invalid json")
+
+    def test_missing_keys(self):
+        transformer = QuoteTransformer()
+        invalid_json = '{"quoteResponse":{}}'
+        with self.assertRaises(APIClientExceptions.TransformerException):
+            transformer._return_quote_dict(invalid_json)
+
+    def test_output_dict_format(self):
+        transformer = QuoteTransformer()
+        output = transformer.output(self.json, "dict")
+        self.assertIsInstance(output, dict)
+
+    def test_output_raw_format(self):
+        transformer = QuoteTransformer()
+        output = transformer.output(self.json, "raw")
+        self.assertEqual(output, self.json)
 
 if __name__ == '__main__':
     unittest.main()

@@ -8,9 +8,14 @@ import os
 import json
 import random
 from typing import Dict, Optional, Any
+import logging
 import requests
 from client.api.validators.validator import Validator
 from client.exceptions.APIClientExceptions import BaseAPIClientException, APIClientException
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class ApiClient:
@@ -20,19 +25,18 @@ class ApiClient:
 
     def __init__(self):
         """
-        Setup api client
-        @var self.session: Stores Session Cookies
+        Setup API client
         """
-        self.session = requests.Session()  # Create a session to persist cookies
+        self.session = requests.Session()
 
     def request_api(self, url: str, params: Optional[Any] = None,
                     headers: Optional[Dict[str, str]] = None) -> str:
         """
-        Send GET request with url to endpoint and return answer
-        @param url: The URL for the api request.
-        @param params: The parameters for the api request.
-        @param headers:The headers for the api request (can be specified manually)
-        @return: The response from the api as a string.
+        Send GET request with URL to endpoint and return answer
+        @param url: The URL for the API request.
+        @param params: The parameters for the API request.
+        @param headers: The headers for the API request (can be specified manually)
+        @return: The response from the API as a string.
         """
         if Validator.valid_url(url):
             try:
@@ -45,15 +49,14 @@ class ApiClient:
                     headers=headers,
                     params=params
                 )
-                # response.raise_for_status()  # Raise an exception for HTTP errors
 
                 return response.text
 
             except requests.exceptions.RequestException as e:
-
-                raise APIClientException(f'An error occurred: {str(e)} from e') from e
+                logger.error('An error occurred: %s', str(e))
+                return response.text if response else None
         else:
-            return "An error accured"
+            return "An error occurred"
 
     @staticmethod
     def get_random_user_agent() -> str:
@@ -64,29 +67,24 @@ class ApiClient:
         try:
             file_path = os.path.join(os.path.dirname(__file__), 'data/useragents.json')
 
-            # Check if the file exists and is readable
             if not os.path.exists(file_path) or not os.access(file_path, os.R_OK):
                 raise APIClientException('Failed to read useragents.json file')
 
             with open(file_path, encoding='utf-8') as file:
                 user_agents_json = file.read()
 
-            # Check if there was an error reading the file
             if not user_agents_json:
                 raise APIClientException('Failed to read useragents.json file')
 
             user_agents = json.loads(user_agents_json)
 
-            # Check if JSON decoding was successful and if user_agents is a list
             if not isinstance(user_agents, list):
                 raise APIClientException('Failed to decode useragents.json')
 
-            # Check if the list of user agents is empty
             if not user_agents:
                 raise APIClientException('No user agents found in useragents.json')
 
         except Exception as e:
-            raise BaseAPIClientException(f'An error occurred: {str(e)} from e') from e
+            raise BaseAPIClientException(f'An error occurred: {str(e)}') from e
 
-        # Return a random user agent from the list
         return random.choice(user_agents)

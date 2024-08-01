@@ -18,3 +18,13 @@ class TransformerException(BaseAPIClientException):
 class ValidatorException(BaseAPIClientException):
     """Exception for authorization-related errors."""
     pass
+
+
+class ApiException(Exception):
+    """Custom exception for API errors"""
+    pass
+
+
+class JSONDecodeError(Exception):
+    """Custom exception for JSON errors"""
+    pass

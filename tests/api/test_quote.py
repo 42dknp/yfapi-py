@@ -5,14 +5,13 @@ import unittest
 from client.api.quote import Quote
 
 
-class QuoteTest(unittest.TestCase):
+class TestQuote(unittest.TestCase):
     def setUp(self):
         super().setUp()
 
         self.getQuote = Quote()
-        self.getQuote.output = "raw"  # Set output format to raw (json text string)
-
-        self.symbol = "TSM"
+        self.getQuote.output = "raw" 
+        self.symbol = "GS"
 
         # Get a new Crumb
         self.quote_data = self.getQuote.get_quote(self.symbol)

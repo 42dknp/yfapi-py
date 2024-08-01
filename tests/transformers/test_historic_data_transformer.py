@@ -5,10 +5,12 @@ Copyright 2023 Dominic Kneup.
 Licensed under the MIT License; you can find the LICENSE file in the project's root folder.
 """
 import unittest
-from client.api.transformers.historic_data_transformer import HistoricDataTransformer
+from client.api.transformers.historic_data_transformer import HistoricDataTransformer, OutputFormat
+from client.exceptions.APIClientExceptions import TransformerException
+from parameterized import parameterized
 
 
-class HistoricDataTransformerTest(unittest.TestCase):
+class TestHistoricDataTransformer(unittest.TestCase):
     def setUp(self):
         """
         Setup Demo data (actual api response) for testing
@@ -31,9 +33,11 @@ class HistoricDataTransformerTest(unittest.TestCase):
                      '315.32000732421875,313.4800109863281]}],"adjclose":[{"adjclose":[318.5,306.1199951171875,'
                      '308.6000061035156,310.5,312.4800109863281,312.6099853515625]}]}}],"error":null}}')
 
-    def test_transform_results(self):
-        expected_count = 6  # Number of timestamps in the provided JSON
-        actual = HistoricDataTransformer.transform_results(self.json, 'dict')
+    @parameterized.expand([
+        (OutputFormat.DICT, 6)
+    ])
+    def test_transform_results(self, output_format, expected_count):
+        actual = HistoricDataTransformer.transform_results(self.json, output_format)
         self.assertEqual(len(actual), expected_count)
 
         # Ensure the transformed data contains expected keys
@@ -44,14 +48,10 @@ class HistoricDataTransformerTest(unittest.TestCase):
         self.assertIn('close', actual[0])
         self.assertIn('adjclose', actual[0])
 
-    def test_transform_single_data(self):
-        timestamp = 1696253400
-        open_val = 322.0299987792969
-        low = 317.1000061035156
-        high = 323.5799865722656
-        close = 318.5
-        adj_close = 318.5
-
+    @parameterized.expand([
+        (1696253400, 322.0299987792969, 317.1000061035156, 323.5799865722656, 318.5, 318.5)
+    ])
+    def test_transform_single_data(self, timestamp, open_val, low, high, close, adj_close):
         expected_array = {
             'timestamp': timestamp,
             'open': open_val,
@@ -61,9 +61,6 @@ class HistoricDataTransformerTest(unittest.TestCase):
             'adjclose': adj_close
         }
 
-        expected_object = expected_array
-
-        # Test array output
         actual_array = HistoricDataTransformer.transform_single_data(timestamp, (open_val, low, high, close, adj_close))
         self.assertEqual(expected_array, actual_array)
 
@@ -119,16 +116,39 @@ class HistoricDataTransformerTest(unittest.TestCase):
             },
         ]
 
-        # Test specific list output (change from array to list)
         actual_list_output = HistoricDataTransformer.output(self.json, 'dict')
         self.assertEqual(1696253400, actual_list_output[0]["timestamp"])
         self.assertEqual(303.4800109863281, actual_list_output[2]["low"])
         self.assertEqual(312.4800109863281, actual_list_output[4]["adjclose"])
         self.assertEqual(308.8999938964844, actual_list_output[5]["open"])
 
-        # Test object output
         actual_object_output = HistoricDataTransformer.output(self.json, 'dict')
         self.assertEqual(expected_array_output, actual_object_output)
+
+    def test_invalid_json(self):
+        invalid_json = '{"chart": {"result": [}}'
+        with self.assertRaises(TransformerException):
+            HistoricDataTransformer.transform_results(invalid_json, OutputFormat.DICT)
+
+    def test_missing_keys(self):
+        missing_keys_json = '{"chart": {"result": [{}]}}'
+        with self.assertRaises(TransformerException):
+            HistoricDataTransformer.transform_results(missing_keys_json, OutputFormat.DICT)
+
+    def test_empty_data(self):
+        empty_data_json = '{"chart": {"result": [{"timestamp": [], "indicators": {"quote": [{}], "adjclose": [{}]}}]}}'
+        with self.assertRaises(TransformerException):
+            HistoricDataTransformer.transform_results(empty_data_json, OutputFormat.DICT)
+
+    def test_invalid_output_format(self):
+        with self.assertRaises(TransformerException):
+            HistoricDataTransformer.transform_results(self.json, "invalid_format")
+
+    def test_none_values(self):
+        none_values_json = ('{"chart":{"result":[{"timestamp":[1696253400],"indicators":{"quote":[{"open":[null],'
+                            '"low":[null],"high":[null],"close":[null]}],"adjclose":[{"adjclose":[null]}]}}]}}')
+        with self.assertRaises(TransformerException):
+            HistoricDataTransformer.transform_results(none_values_json, OutputFormat.DICT)
 
 
 if __name__ == '__main__':

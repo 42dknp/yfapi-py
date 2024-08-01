@@ -4,64 +4,103 @@ Module: QuoteTransformer
 Copyright 2023 Dominic Kneup.
 Licensed under the MIT License; you can find the LICENSE file in the project's root folder.
 """
+from enum import Enum
+from typing import Dict, List, Union
 from client.api.transformers.transformer import Transformer
 from client.api.validators.quote_validator import QuoteValidator
-from client.exceptions.APIClientExceptions import TransformerException
+from client.exceptions import APIClientExceptions
+
+
+class OutputFormat(Enum):
+    """Enum for output formats
+
+    This enum defines the possible output formats for the quote data.
+    The available formats are 'list' and 'raw'.
+    """
+    DICT = "dict"
+    RAW = "raw"
 
 
 class QuoteTransformer:
     """
-    Class QuoteTransformer
+    Quote Transformer Class
     """
-    OUTPUT_DICT = "dict"
-    OUTPUT_RAW = "raw"
+    def __init__(self):
+        self.transformer = Transformer()
+        self.validator = QuoteValidator()
 
-    @staticmethod
-    def data_transformation(result: str, data_type: str) -> dict:
+    def _data_transformation(self, result: str, data_type: str) -> Dict:
         """
-        Validates and Transforms Quote data
-        @param result: string, The raw json from api as input
-        @param data_type: string, api type (e.g. quote)
-        @return: dict, A list with Quote data
+        Validates and transforms quote data.
+
+        Args:
+            result (str): Raw JSON from API.
+            data_type (str): Type of data (e.g., "quote").
+
+        Returns:
+            Dict: Transformed quote data.
+
+        Raises:
+            APIClientExceptions.TransformerException: If transformation fails.
         """
         try:
-            data = dict(Transformer.decode_json_response(result))
-            QuoteValidator.validate_results(data)
-            return Transformer.flatten_data(data[data_type]["result"][0])
+            data = self.transformer.json_to_list(result)
+            self.validator.validate_results(data)
+            return self.transformer.flatten_dict(data[data_type]["result"][0])
+        except (KeyError, ValueError) as e:
+            raise APIClientExceptions.TransformerException(
+                "Error transforming quote data due to missing keys or value errors."
+            ) from e
         except Exception as e:
-            raise TransformerException("Error transform Quote Date.") from e
+            raise APIClientExceptions.TransformerException(
+                "Error transforming quote data due to an unexpected error."
+            ) from e
 
     @staticmethod
-    def transform_fields(fields: list, allowed_fields: list) -> str:
+    def transform_fields(fields: List[str], allowed_fields: List[str]) -> str:
         """
-        Transform allowed Fields
-        @param fields: Input Fields
-        @param allowed_fields: Allowed Fields input
-        @return: a string with all fields (for use in api request)
+        Transform allowed fields into a comma-separated string.
+
+        Args:
+            fields (List[str]): Input fields to transform.
+            allowed_fields (List[str]): Allowed fields.
+
+        Returns:
+            str: Comma-separated string of valid fields for API requests.
         """
         valid_fields = [field for field in fields if field in allowed_fields]
+        return ",".join(valid_fields)
 
-        return ','.join(valid_fields)
+    def _return_quote_dict(self, data: str) -> Dict:
+        """
+        Converts and returns quote data as a dictionary.
 
-    @staticmethod
-    def return_quote_dict(data: str) -> dict:
+        Args:
+            data (str): Raw JSON data.
+
+        Returns:
+            Dict: Converted quote data.
         """
-        Converts and returns Quote data as Dictionary
-        @param data: raw json data as input
-        @return: converted Quote data as Output
-        """
-        return QuoteTransformer.data_transformation(data, "quoteResponse")
+        return self._data_transformation(data, "quoteResponse")
 
     @classmethod
-    def output(cls, data: str, output: str):
+    def output(cls, data: str, output: str) -> Union[Dict, str]:
         """
-        Return Quote in specified Output Format
-        @param data: raw json as input
-        @param output: either raw, list or dict
-        @return: Return converted and formatted data
+        Returns quote data in the specified output format.
+
+        Args:
+            data (str): Raw JSON data.
+            output (str): Desired output format (OutputFormat).
+
+        Returns:
+            Union[Dict, str]: Converted and formatted data.
+
+        Raises:
+            APIClientExceptions.TransformerException: If output format is invalid.
         """
-        if output == cls.OUTPUT_DICT:
-            return cls.return_quote_dict(data)
-        if output == cls.OUTPUT_RAW:
+        instance = cls()
+        if output == OutputFormat.DICT.value:
+            return instance._return_quote_dict(data)
+        if output == OutputFormat.RAW.value:
             return data
-        raise TransformerException("Output Format invalid")
+        raise APIClientExceptions.TransformerException("Output format invalid")

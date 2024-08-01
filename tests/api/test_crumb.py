@@ -8,7 +8,7 @@ import unittest
 from client.api.crumb import Crumb
 
 
-class CrumbTest(unittest.TestCase):
+class TestCrumb(unittest.TestCase):
 
     crumb_data = None
 

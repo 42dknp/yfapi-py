@@ -5,7 +5,7 @@ import unittest
 from client.api.validators.crumb_validator import CrumbValidator
 
 
-class CrumbValidatorTest(unittest.TestCase):
+class TestCrumbValidator(unittest.TestCase):
 
     # Test if method returns the value that was sent
     def testValidCrumbSymbols(self):

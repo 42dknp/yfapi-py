@@ -2,16 +2,16 @@
 # Licensed under the MIT License; you can find the LICENSE file in the project's root folder.
 
 import unittest
-from client.api.similar_securities import \
-    SimilarSecurities  # Assuming you have a file similar_securities.py with the SimilarSecurities class
+from client.api.similar_securities import SimilarSecurities  
 
 
-class SimilarSecuritiesTest(unittest.TestCase):
+class TestSimilarSecurities(unittest.TestCase):
     def setUp(self):
-        self.similar_securities_data = None
+        
         get_similar_securities = SimilarSecurities()
-        get_similar_securities.output = "raw"
+        get_similar_securities.output_format = "raw"
         symbol = "GS"
+        
         self.similar_securities_data = get_similar_securities.get_similar_securities(symbol)
 
     def test_similar_securities_not_none(self):

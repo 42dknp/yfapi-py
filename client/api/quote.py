@@ -4,30 +4,32 @@ Module: Quote
 Copyright 2023 Dominic Kneup.
 Licensed under the MIT License; you can find the LICENSE file in the project's root folder.
 """
-from typing import Union
+import logging
+from typing import Union, List, Dict
 from client.api.crumb import Crumb
-from client.api.validators.validator import Validator
 from client.api.transformers.quote_transformer import QuoteTransformer
+from client.api.config import settings
+from client.exceptions.APIClientExceptions import ApiException
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class Quote(Crumb):
     """
     Class Quote
     Attributes:
-        endpoint (str): api Endpoint URL (optional)
-        allowedFields (list): Allowed fields for api Call (optional)
-        corsDomain (str): Setup CorsDomain (Optional)
-        region (str): Setup Region (optional)
-        language (str): Setup Language (optional)
-        formatted (str): Setup api Output Format (should only used with "raw" json output, Optional)
-        output (str): Setup Default client Output Format (optional)
-        crumb (str): Setup existing Crumb (optional)
+        endpoint (str): API Endpoint URL
+        allowedFields (list): Allowed fields for API Call
+        cors_domain (str): CORS Domain
+        region (str): Region
+        language (str): Language
+        formatted (str): API Output Format
+        output (str): Default client Output Format
+        crumb (str): Existing Crumb
     """
-    # api Endpoint URL
-    endpoint: str = "https://query2.finance.yahoo.com/v7/finance/quote"
-
-    # Allowed fields for api Call
-    allowedFields: list = [
+    allowedFields: List[str] = [
         "longName",
         "shortName",
         "regularMarketPrice",
@@ -50,34 +52,32 @@ class Quote(Crumb):
         "corporateActions"
     ]
 
-    # Setup CorsDomain
-    corsDomain: str = "finance.yahoo.com"
+    def __init__(self,
+                 endpoint: str = settings.quote_api_endpoint,
+                 cors_domain: str = settings.quote_cors_domain,
+                 region: str = settings.quote_region,
+                 language: str = settings.quote_language,
+                 formatted: str = settings.quote_formatted,
+                 output: str = settings.quote_output,):
+        super().__init__()
+        self.endpoint = endpoint
+        self.cors_domain = cors_domain
+        self.region = region
+        self.language = language
+        self.formatted = formatted
+        self.output = output
+        self.crumb = self.get_crumb()
 
-    # Setup Region
-    region: str = "US"
-
-    # Setup Language
-    language: str = "en-US"
-
-    # Setup Output Format
-    formatted: str = "true"
-
-    # Setup Default Output Format
-    output: str = "dict"
-
-    # Setup Crumb (optional)
-    crumb: str = ""
-
-    def get_quote(self, symbol: str) \
-            -> Union[str, dict, list]:
+    def get_quote(self, symbol: str) -> Union[str, Dict, List]:
         """
         Get Quote by Symbol (Security)
         @param symbol: The Security / Stock symbol
-        @return: Returns raw json output / formatted List or Dict
+        @return: Returns raw JSON output / formatted List or Dict
         """
-        # If crumb is emtpy
-        if self.crumb == "":
-            # Get a new Crumb
+        logger.info("Fetching quote for symbol: %s", symbol)
+
+        if not self.crumb:
+            logger.info("Crumb is empty, fetching new crumb")
             self.crumb = self.get_crumb()
 
         params = {
@@ -86,15 +86,23 @@ class Quote(Crumb):
             'lang': self.language,
             'region': self.region,
             'symbols': symbol,
-            'fields': QuoteTransformer.transform_fields(self.allowedFields, self.allowedFields),
-            'corsDomain': self.corsDomain
+            'fields': QuoteTransformer.transform_fields(
+                fields=self.allowedFields,
+                allowed_fields=self.allowedFields
+            ),
+            'cors_domain': self.cors_domain
         }
+        print(self.crumb)
+        try:
+            response_data = self.request_api(self.endpoint, params=params)
 
-        response = self.request_api(self.endpoint, params)
+            quote = QuoteTransformer.output(data=response_data, output=self.output)
+            logger.info("Successfully fetched quote for symbol: %s", symbol)
+            return quote
 
-        # Check response for errors
-        Validator.check_response_error(response)
-
-        quote = QuoteTransformer.output(response, self.output)
-
-        return quote
+        except ApiException as e:
+            logger.error("API error fetching quote for symbol %s: %s", symbol, e)
+            raise
+        except Exception as e:
+            logger.error("Unexpected error fetching quote for symbol %s: %s", symbol, e)
+            raise

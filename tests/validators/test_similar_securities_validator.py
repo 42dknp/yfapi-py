@@ -6,7 +6,7 @@ import json
 from client.api.validators.similar_securities_validator import SimilarSecuritiesValidator
 
 
-class SimilarSecuritiesValidatorTest(unittest.TestCase):
+class TestSimilarSecuritiesValidator(unittest.TestCase):
     def setUp(self):
         """
         Setup Demo data (actual api response) for testing

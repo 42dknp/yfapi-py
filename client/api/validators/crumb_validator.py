@@ -9,15 +9,21 @@ from client.exceptions.APIClientExceptions import ValidatorException
 
 class CrumbValidator:
     """
-    Class: CrumbValidator
+    Provides validation for crumb strings.
     """
-
     @staticmethod
     def validate_crumb(crumb: str) -> str:
         """
-        Validate that the crumb is not empty.
-        @param crumb: Crumb as string
-        @return: string, returns the crumb if valid
+        Validates that the crumb is not empty.
+
+        Args:
+            crumb (str): The crumb string to validate.
+
+        Returns:
+            str: The valid crumb string.
+
+        Raises:
+            ValidatorException: If the crumb is empty.
         """
         if crumb != '':
             return crumb
